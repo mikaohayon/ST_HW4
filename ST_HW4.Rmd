@@ -1,0 +1,226 @@
+---
+title: "ST_HW4"
+author: "Mika Ohayon mo25575"
+date: "2025-02-13"
+output: 
+  pdf_document:
+    latex_engine: xelatex
+---
+[Click here for Github repo for code](https://github.com/mikaohayon/ST_HW3)
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(tidyverse)
+library(mosaic)
+
+```
+
+# *Problem 1*
+Null hypothesis: The proportion of flagged trades for Iron Bank follows the same 2.4% baseline rate.
+
+Test statistic observed: 70/2021 trades flagged
+
+Plot of the probability distribution of the test statistic:
+
+```{r, echo=FALSE}
+num_trades = 2021  # Total trades
+num_flagged = 70  # Observed flagged trades
+baseline_rate = 0.024  # claimed aseline probability of a trade being flagged
+num_simulations = 100000  # Number of simulations
+simulated_counts = rbinom(num_simulations, num_trades, baseline_rate) # Conduct simulations
+# Calculate p-value
+p_value = mean(simulated_counts >= num_flagged)
+
+# Plot the probability distribution of the test statistic
+ggplot(tibble(simulated_counts = simulated_counts)) +
+  geom_histogram(aes(x = simulated_counts), bins = 50, fill = "lightblue") +
+  geom_vline(xintercept = num_flagged, color = "red", lwd = 2) +
+  labs(title = "Distribution of Flagged Trades Under Null Hypothesis", x = "Number of Flagged Trades", y = "Frequency")
+
+```
+P-value: 0.00192 
+
+Conclusion: The probability of observing 70 or more flagged trades under the null hypothesis is very low (p-value: 0.00192 ). This suggests that the Iron Bank's flagged trades occur at a significantly higher rate than expected, and an investigation is warranted.
+
+
+# *Problem 2*
+Null hypothesis: The proportion of violations for Gourmet Bites follows the same 3% baseline rate.
+
+Test Statistic: 8 health code violations out of 50 total inspections across Gourmet Bites.
+
+Plot of the probability distribution of the test statistic:
+
+```{r, echo=FALSE}
+num_inspections = 50  # Total inspections for Gourmet Bites
+num_violations = 8  # Observed health code violations
+baseline_rate = 0.03  # Baseline probability of a violation
+num_simulations = 100000  # Number of simulations
+
+simulated_counts = rbinom(num_simulations, num_inspections, baseline_rate)
+p_value = mean(simulated_counts >= num_violations)
+
+# Plot the probability distribution of the test statistic
+ggplot(tibble(simulated_counts = simulated_counts)) +
+  geom_histogram(aes(x = simulated_counts), bins = 50, fill = "lightblue") +
+  geom_vline(xintercept = num_violations, color = "red", lwd = 2) +
+  labs(title = "Distribution of Health Code Violations Under Null Hypothesis", x = "Number of Violations", y = "Frequency")
+```
+P-value: 0.00011 
+
+Conclusion: The probability of observing 8 or more health code violations under the null hypothesis is very low (p-value: 0.00011 ). This suggests that Gourmet Bites' violation rate is significantly higher than expected, warranting further investigation.
+\pagebreak
+
+# *Problem 3*
+
+Null hypothesis: The jury selection follows the county’s demographic proportions.
+
+Test statistic: 22.57 chi-squared value based on the difference between observed and expected jury group counts across 20 trials.
+
+Plot of the probability distribution of the test statistic:
+
+```{r, echo=FALSE}
+num_jurors = 20 * 12  
+observed_counts = c(Group1 = 85, Group2 = 56, Group3 = 59, Group4 = 27, Group5 = 13)
+expected_proportions = c(Group1 = 0.30, Group2 = 0.25, Group3 = 0.20, Group4 = 0.15, Group5 = 0.10)
+expected_counts = expected_proportions * num_jurors
+
+chi_squared_statistic = function(observed, expected) {
+  sum((observed - expected)^2 / expected)
+}
+observed_chi2 = chi_squared_statistic(observed_counts, expected_counts)
+
+# Conduct Monte Carlo simulations
+num_simulations = 100000
+simulated_chi2 = replicate(num_simulations, {
+  simulated_counts = rmultinom(1, num_jurors, expected_proportions)
+  chi_squared_statistic(simulated_counts, expected_counts)
+})
+
+# Calculate p-value
+p_value = mean(simulated_chi2 >= observed_chi2)
+
+# Plot the probability distribution of the test statistic
+ggplot(tibble(simulated_chi2 = simulated_chi2)) +
+  geom_histogram(aes(x = simulated_chi2), bins = 50, fill = "lightblue") +
+  geom_vline(xintercept = observed_chi2, color = "red", lwd = 2) +
+  labs(title = "Distribution of Chi-Squared Statistic Under Null Hypothesis", x = "Chi-Squared Statistic", y = "Frequency")
+
+```
+
+P-value: 0.01444 
+
+Conclusion: The probability of observing a chi-squared statistic of 12.43 or more under the null hypothesis is very low (p-value: 0.01444 ). This suggests that the jury selection is significantly different from the expected distribution, indicating possible systematic bias.
+
+\pagebreak
+
+
+# *Problem 4*
+Part A:
+
+```{r, echo=FALSE}
+# Read sentences from file
+brown_sentences <- readLines("brown_sentences.txt")
+
+# Function to clean text: Remove non-letters & convert to uppercase
+clean_text <- function(text) {
+  toupper(gsub("[^A-Za-z]", "", text))
+}
+
+# Apply cleaning function to all sentences
+clean_sentences <- sapply(brown_sentences, clean_text)
+
+# Function to count letter occurrences
+count_letters <- function(sentence) {
+  letter_table <- table(factor(strsplit(sentence, NULL)[[1]], levels = LETTERS))  # Ensure all letters included
+  as.numeric(letter_table)  # Convert to numeric vector
+}
+
+# Compute letter counts for each sentence
+letter_counts_list <- lapply(clean_sentences, count_letters)
+
+# Read expected letter frequencies
+letter_frequencies <- read.csv("letter_frequencies.csv")
+
+# Function to calculate chi-squared statistic
+calculate_chi_squared <- function(observed_counts, expected_frequencies) {
+  total_letters <- sum(observed_counts)
+  expected_counts <- total_letters * expected_frequencies$Probability
+  
+  # Avoid division by zero
+  valid_indices <- expected_counts > 0
+  sum((observed_counts[valid_indices] - expected_counts[valid_indices])^2 / expected_counts[valid_indices])
+}
+
+# Compute chi-squared values
+chi_squared_values <- sapply(letter_counts_list, calculate_chi_squared, expected_frequencies = letter_frequencies)
+
+# Plot histogram
+hist(chi_squared_values, main="Chi-squared Distribution of Brown Corpus Sentences", 
+     xlab="Chi-squared", ylab="Frequency")
+
+```
+
+\pagebreak
+
+Part B:
+
+LLM Watermark:
+The table below shows the p-values for each of the following 10 sentences under the null hypothesis that they follow typical English letter distribution, helping identify any potential anomalies.
+
+1. She opened the book and started to read the first chapter, eagerly anticipating what might come next.
+2. Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the
+fountain in the center.
+3. The museum’s new exhibit features ancient artifacts from various civilizations around the world.
+4. He carefully examined the document, looking for any clues that might help solve the mystery.
+5. The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.
+6. Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening
+at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to
+Auckland.
+7. The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing
+mainly on some excellent dinner recipes from Spain.
+8. They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.
+9. The committee reviewed the proposal and provided many points of useful feedback to improve the
+project’s effectiveness.
+10. Despite the challenges faced during the project, the team worked tirelessly to ensure its successful
+completion, resulting in a product that exceeded everyone’s expectations.
+
+
+```{r, echo=FALSE}
+# Function to calculate chi-squared statistic 
+calculate_chi_squared <- function(sentence, freq_table) {
+  clean_sentence <- clean_text(sentence)  
+  observed_counts <- count_letters(clean_sentence)  
+  
+  total_letters <- sum(observed_counts)
+  expected_counts <- total_letters * freq_table$Probability
+  
+  # Avoid division by zero
+  valid_indices <- expected_counts > 0
+  sum((observed_counts[valid_indices] - expected_counts[valid_indices])^2 / expected_counts[valid_indices])
+}
+
+# List of given sentences
+sentences <- c(
+  "She opened the book and started to read the first chapter, eagerly anticipating what might come next.",
+  "Despite the heavy rain, they decided to go for a long walk in the park, crossing the main avenue by the fountain in the center.",
+  "The museum’s new exhibit features ancient artifacts from various civilizations around the world.",
+  "He carefully examined the document, looking for any clues that might help solve the mystery.",
+  "The students gathered in the auditorium to listen to the guest speaker’s inspiring lecture.",
+  "Feeling vexed after an arduous and zany day at work, she hoped for a peaceful and quiet evening at home, cozying up after a quick dinner with some TV, or maybe a book on her upcoming visit to Auckland.",
+  "The chef demonstrated how to prepare a delicious meal using only locally sourced ingredients, focusing mainly on some excellent dinner recipes from Spain.",
+  "They watched the sunset from the hilltop, marveling at the beautiful array of colors in the sky.",
+  "The committee reviewed the proposal and provided many points of useful feedback to improve the project’s effectiveness.",
+  "Despite the challenges faced during the project, the team worked tirelessly to ensure its successful completion, resulting in a product that exceeded everyone’s expectations."
+)
+
+# Compute chi-squared values for each sentence
+chi_sq_values <- sapply(sentences, calculate_chi_squared, freq_table = letter_frequencies)
+
+# Compute p-values
+p_values <- 1 - pchisq(chi_sq_values, df = 25)
+
+# Create and print results table
+p_values_df <- data.frame(Sentence = 1:10, P_Value = round(p_values, 3))
+print(p_values_df, row.names = FALSE)
+```
+
+Sentence 6 has a p-value of 0.000, which is much lower than the other sentences. This suggests that its letter frequency distribution is different from typical English text. Therefore, sentence 6 is likely the one generated by the LLM with a watermark, as the watermark would subtly change the letter frequencies.
